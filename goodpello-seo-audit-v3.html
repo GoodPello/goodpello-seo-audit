@@ -365,7 +365,8 @@ function extractListData(html, url) {
     });
   }
 
-  return { url, lang, layer, type: 'list', title, metaDesc, h1, bannerDesc, seoBody, faqs };
+  return { url, lang, layer, type: 'list', title, metaDesc, h1, bannerDesc, seoBody, faqs,
+    raw: { title, metaDesc, h1, bannerDesc, seoBody, faqs } };
 }
 
 function extractDetailData(html, url) {
@@ -1055,7 +1056,7 @@ window.auditUrl = async function(url) {
     const type = detectType(url);
     const data = type === 'list' ? extractListData(html, url) : extractDetailData(html, url);
     const audit = await auditWithClaude(data);
-    results.push({ ...audit, url, pageType: type, lang: data.lang, layer: data.layer || '', auditType: 'internal' });
+    results.push({ ...audit, url, pageType: type, lang: data.lang, layer: data.layer || '', auditType: 'internal', pageData: data.raw || {} });
   }
 
   if (auditMode === 'google' || auditMode === 'both') {
