@@ -674,8 +674,27 @@ function exportCSV() {
 </style>
 
 <script>
+// 결과 데이터 저장소
+const fixDataStore = {};
+
+// 결과 카드 렌더링 시 데이터 저장
+function storeFixData(key, data) {
+  fixDataStore[key] = data;
+}
+
 // 보완 초안 생성 함수
-async function generateFix(btn, type, auditResult) {
+async function generateFix(btn, type) {
+  const card = btn.closest('.result-card');
+  const urlEl = card.querySelector('.result-url a');
+  const url = urlEl ? urlEl.href : '';
+  const key = type + '_' + url;
+  const auditResult = fixDataStore[key];
+
+  if (!auditResult) {
+    alert('데이터를 찾을 수 없습니다. 페이지를 다시 감사해 주세요.');
+    return;
+  }
+
   const panel = btn.nextElementSibling;
   btn.disabled = true;
   btn.textContent = '생성 중...';
@@ -991,6 +1010,8 @@ async function runGoogleAudit(url, html) {
 }
 
 function renderGoogleResult(r) {
+  // 데이터 저장
+  storeFixData('google_' + r.url, r);
   const checks = r.checks || {};
   const checksHtml = Object.entries(googleLabels).map(([k, label]) => {
     const c = checks[k] || {status:'warn', comment:''};
@@ -1016,7 +1037,7 @@ function renderGoogleResult(r) {
     ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
     ${strengths ? `<div class="strengths">${strengths}</div>` : ''}
     ${issues ? `<div class="issues">${issues}</div>` : ''}
-    <button class="fix-btn" onclick="generateFix(this, 'google', ${JSON.stringify(r).replace(/`/g,'\`')})">✦ AI 보완 초안 생성</button>
+    <button class="fix-btn" onclick="generateFix(this, 'google')">✦ AI 보완 초안 생성</button>
     <div class="fix-panel" style="display:none;"></div>
   </div>`;
 }
@@ -1134,6 +1155,8 @@ function renderCombinedResults(internalArr, googleArr) {
 }
 
 function renderInternalResultCard(r) {
+  // 데이터 저장
+  storeFixData('internal_' + r.url, r);
   const labels = r.pageType === 'list' ? listLabels : detailLabels;
   const checks = r.checks || {};
   const checksHtml = Object.entries(labels).map(([k, label]) => {
@@ -1161,7 +1184,7 @@ function renderInternalResultCard(r) {
     <div class="checks">${checksHtml}</div>
     ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
     ${issues ? `<div class="issues">${issues}</div>` : ''}
-    <button class="fix-btn" onclick="generateFix(this, 'internal', ${JSON.stringify(r).replace(/`/g,'\`')})">✦ AI 보완 초안 생성</button>
+    <button class="fix-btn" onclick="generateFix(this, 'internal')">✦ AI 보완 초안 생성</button>
     <div class="fix-panel" style="display:none;"></div>
   </div>`;
 }
