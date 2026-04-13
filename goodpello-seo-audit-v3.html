@@ -788,12 +788,95 @@ function buildInternalFixPrompt(r) {
     if (urlPath.includes(key)) { thisPageKeyword = kw; thisPageType = type; break; }
   }
 
-  // 카니발라이제이션 방지 규칙
-  const cannibalRule = thisPageType === 'biz'
-    ? '⚠️ 카니발라이제이션 금지: ~양식/~PPT 템플릿/~서식 계열 키워드 사용 금지 (표준목차 전용). 비즈툴킷은 ~작성법/~만드는 법 계열만 사용'
-    : thisPageType === 'standard'
-    ? '⚠️ 카니발라이제이션 금지: ~작성법/~만드는 법 계열 키워드 사용 금지 (비즈툴킷 전용). 표준목차는 ~양식/~PPT 템플릿/~서식 계열만 사용'
-    : '⚠️ 동의어 교차 배정: 같은 레이어 내 PPT/파워포인트/슬라이드 중 이 페이지 고유 키워드만 사용';
+  // 언어별 키워드 번역 (영어/일본어 페이지에서 한글 키워드 노출 방지)
+  const keywordTranslation = {
+    en: {
+      '사업계획서 작성법': 'How to Write a Business Plan PPT',
+      '보고서 작성법': 'How to Write a Business Report PPT',
+      '제안서 작성법': 'How to Write a Business Proposal PPT',
+      'IR 자료 만드는 법': 'How to Create an IR Pitch Deck',
+      '회사소개서 작성법': 'How to Write a Company Profile PPT',
+      '마케팅 기획서 작성법': 'How to Write a Marketing Plan PPT',
+      '제품 소개서 작성법': 'How to Write a Product Presentation PPT',
+      '강의자료 만드는 법': 'How to Create Training Material PPT',
+      '비즈니스 문서 PPT 작성법': 'How to Write Business Document PPTs',
+      'PPT 템플릿': 'PPT Templates',
+      '심플 PPT 템플릿': 'Simple PPT Templates',
+      '비즈니스 PPT 템플릿': 'Business PPT Templates',
+      'IT PPT 템플릿': 'IT PPT Templates',
+      '의료 PPT 템플릿': 'Medical PPT Templates',
+      '교육 PPT 템플릿': 'Education PPT Templates',
+      '여행 PPT 템플릿': 'Travel PPT Templates',
+      '건설 PPT 템플릿': 'Construction PPT Templates',
+      '프레젠테이션 템플릿': 'Presentation Templates',
+      '표준목차 PPT 템플릿': 'Standard Outline PPT Templates',
+      '회사소개서 PPT 양식': 'Company Profile PPT Template',
+      '제품 소개서 PPT 템플릿': 'Product Presentation PPT Template',
+      '제안서 PPT 무료 양식': 'Free Business Proposal PPT Template',
+      '피치덱 PPT 템플릿': 'Pitch Deck PPT Template',
+      '사업계획서 양식 PPT': 'Business Plan PPT Template',
+      '마케팅 기획서 양식': 'Marketing Plan PPT Template',
+      '보고서 PPT 양식': 'Business Report PPT Template',
+      '강의자료 PPT 양식': 'Training Material PPT Template',
+      '프리미엄 PPT 템플릿': 'Premium PPT Templates',
+      '미니멀 PPT 템플릿': 'Minimal PPT Templates',
+      '움직이는 PPT 템플릿': 'Animated PPT Templates',
+      '애니메이션 PPT 템플릿': 'Animation PPT Templates',
+      '파워포인트 슬라이드 모음': 'PowerPoint Slide Collection',
+      'PPT 다이어그램 슬라이드': 'PPT Diagram Slides',
+      '무료 PPT 템플릿': 'Free PPT Templates',
+      'PPT 다이어그램 무료': 'Free PPT Diagrams',
+      '파워포인트 그래프 무료': 'Free PowerPoint Graph Templates',
+      'PPT 텍스트박스 무료': 'Free PPT Text Box Templates',
+      '프리미엄 PPT 템플릿 무료': 'Free Premium PPT Templates'
+    },
+    ja: {
+      '사업계획서 작성법': '事業計画書パワーポイント 作り方',
+      '보고서 작성법': 'ビジネスレポート パワーポイント 作り方',
+      '제안서 작성법': '提案書パワーポイント 作り方',
+      'IR 자료 만드는 법': 'IRピッチデック パワーポイント 作り方',
+      '회사소개서 작성법': '会社紹介書パワーポイント 作り方',
+      '마케팅 기획서 작성법': 'マーケティング企画書 作り方',
+      '제품 소개서 작성법': '製品紹介プレゼンテーション 作り方',
+      '강의자료 만드는 법': '研修資料パワーポイント 作り方',
+      '비즈니스 문서 PPT 작성법': 'ビジネス文書パワーポイント 作り方',
+      'PPT 템플릿': 'パワーポイント テンプレート',
+      '표준목차 PPT 템플릿': '標準目次パワーポイント テンプレート',
+      '회사소개서 PPT 양식': '会社紹介書パワーポイント テンプレート',
+      '사업계획서 양식 PPT': '事業計画書パワーポイント テンプレート',
+      '무료 PPT 템플릿': '無料パワーポイント テンプレート',
+      '파워포인트 슬라이드 모음': 'パワーポイント スライド素材集',
+      'PPT 다이어그램 슬라이드': 'パワーポイント ダイアグラム スライド'
+    }
+  };
+
+  // 언어에 맞는 키워드로 변환
+  if (lang !== 'ko' && keywordTranslation[lang]) {
+    thisPageKeyword = keywordTranslation[lang][thisPageKeyword] || thisPageKeyword;
+  }
+
+  // 카니발라이제이션 방지 규칙 (언어별)
+  const cannibalRules = {
+    ko: {
+      biz: '⚠️ 카니발라이제이션 금지: ~양식/~PPT 템플릿 계열 금지. 비즈툴킷은 ~작성법/~만드는 법 계열만 사용',
+      standard: '⚠️ 카니발라이제이션 금지: ~작성법/~만드는 법 계열 금지. 표준목차는 ~양식/~PPT 템플릿 계열만 사용',
+      other: '⚠️ 동의어 교차 배정: 같은 레이어 내 PPT/파워포인트/슬라이드 중 이 페이지 고유 키워드만 사용'
+    },
+    en: {
+      biz: '⚠️ No cannibalization: Do NOT use ~template/~PPT format keywords (reserved for Standard Outline). Biz Toolkit uses "how to ~" patterns only.',
+      standard: '⚠️ No cannibalization: Do NOT use "how to ~" keywords (reserved for Biz Toolkit). Standard Outline uses ~template/~format patterns only.',
+      other: '⚠️ Synonym rotation: Use only this page\'s unique synonym (PPT/PowerPoint/Slides/Presentation) within the same layer.'
+    },
+    ja: {
+      biz: '⚠️ カニバリゼーション禁止: ~テンプレート/~書式系キーワード禁止。ビズツールキットは～作り方パターンのみ使用',
+      standard: '⚠️ カニバリゼーション禁止: ～作り方系キーワード禁止。標準目次は～テンプレート/～書式系のみ使用',
+      other: '⚠️ 類義語ローテーション: 同一レイヤー内でこのページ固有のキーワード(PPT/パワーポイント/スライド)のみ使用'
+    }
+  };
+  const langCannibal = cannibalRules[lang] || cannibalRules.ko;
+  const cannibalRule = thisPageType === 'biz' ? langCannibal.biz
+    : thisPageType === 'standard' ? langCannibal.standard
+    : langCannibal.other;
 
   const categoryHint = thisPageKeyword;
   const langRules = {
@@ -831,8 +914,10 @@ Language: ${lang} / Layer: ${layer} / Current score: ${r.score}
 [FAILED/WARN ITEMS]
 ${failItems}
 
-Output JSON only (no code block). ALL text values in ${rules.outputLang}:
-{"seo_title":"Improved SEO title (${rules.t}, structure: ${rules.titlePattern}, exclusive keyword '${thisPageKeyword}' included)","meta_description":"Improved meta description (${rules.m}, starting with '${thisPageKeyword}')","banner_desc":"Improved banner description if length insufficient, else empty string","faq_first_answer":"FAQ first answer starting with '${rules.faqDef}'","faq_last_cta":"GoodPello CTA: '${rules.ctaPattern}'","improvement_notes":"개선 참고사항 (한국어 OK)"}`;
+⚠️ LANGUAGE RULE: Every single word in seo_title, meta_description, banner_desc, faq_first_answer, faq_last_cta MUST be in ${rules.outputLang}. Do NOT mix in Korean/Chinese/Japanese characters unless the output language is Japanese/Korean. The exclusive keyword to use is "${thisPageKeyword}" — use it as-is (it is already in ${rules.outputLang}).
+
+Output JSON only (no code block):
+{"seo_title":"(${rules.t}, ${rules.titlePattern} structure, include '${thisPageKeyword}', ${rules.outputLang} only)","meta_description":"(${rules.m}, start with '${thisPageKeyword}', ${rules.outputLang} only)","banner_desc":"(improved banner if too short, else empty string, ${rules.outputLang} only)","faq_first_answer":"(${rules.faqDef}, ${rules.outputLang} only)","faq_last_cta":"(${rules.ctaPattern}, ${rules.outputLang} only — NO Korean words)","improvement_notes":"개선 참고사항 (한국어 가능)"}`;
 }
 
 // ── 상세 페이지 보완 초안 프롬프트 (detail-pages-CLAUDE.md 기준)
@@ -933,8 +1018,11 @@ ${(r.strengths||[]).join(', ')}
 [주요 문제]
 ${(r.top_issues||[]).join(', ')}
 
+⚠️ LANGUAGE RULE: meta_description, h2_suggestions, image_alt_guide, eeat_improvement, ai_overview_tip 모두 ${lang === 'en' ? 'English' : lang === 'ja' ? 'Japanese' : '한국어'} ONLY로 작성. 언어 혼용 절대 금지.
+improvement_notes만 한국어 가능.
+
 JSON만 출력 (코드블록 없이):
-{"meta_description":"구글 최적화 메타 디스크립션 (${metaLen}, PPT 키워드 포함, 클릭 유도, 사용자 의도 반영)","h2_suggestions":["MUVERA 시맨틱 최적화 H2 소제목 1 (질문형 권장)","소제목 2","소제목 3"],"image_alt_guide":"이 PPT 페이지 이미지 alt 텍스트 작성 원칙 및 예시 3개 (키워드 자연 포함, 설명적)","eeat_improvement":"E-E-A-T 강화 제안 (저자정보·전문성·신뢰도 신호 추가 방법)","ai_overview_tip":"AI Overview 노출을 위한 콘텐츠 구조 개선 제안 (FAQ 스키마·정의형 답변 활용)","improvement_notes":"2025 구글 정책 기준 추가 개선 제안"}`;
+{"meta_description":"(${metaLen}, PPT/PowerPoint 키워드 포함, 클릭 유도, ${lang === 'en' ? 'English only' : lang === 'ja' ? '日本語のみ' : '한국어'})","h2_suggestions":["콘텐츠 계층 구조용 H2 소제목 1 (질문형 권장, ${lang === 'en' ? 'English' : lang === 'ja' ? '日本語' : '한국어'})","소제목 2","소제목 3"],"image_alt_guide":"이미지 alt 텍스트 작성 원칙 및 예시 3개 (${lang === 'en' ? 'English only' : lang === 'ja' ? '日本語のみ' : '한국어'})","eeat_improvement":"E-E-A-T 강화 제안 (${lang === 'en' ? 'English only' : lang === 'ja' ? '日本語のみ' : '한국어'})","ai_overview_tip":"AI Overview 최적화 제안 (${lang === 'en' ? 'English only' : lang === 'ja' ? '日本語のみ' : '한국어'})","improvement_notes":"2025 구글 정책 기준 추가 개선 제안 (한국어 가능)"}`;
 }
 
 function renderFixPanel(panel, result, type) {
