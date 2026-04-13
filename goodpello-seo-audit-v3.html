@@ -797,37 +797,42 @@ function buildInternalFixPrompt(r) {
 
   const categoryHint = thisPageKeyword;
   const langRules = {
-    ko: { m:'110~130자' },
-    en: { m:'140~160자' },
-    ja: { m:'80~100자' }
+    ko: { m:'110~130자', t:'30~50자', outputLang:'Korean', faqDef:'[주제]란/은/는 ~입니다 형태', ctaPattern:'굿펠로에서 [주제] 바로 찾아보세요.', titlePattern:'[핵심키워드] – [부연설명] | 굿펠로(GoodPello)' },
+    en: { m:'140~160자', t:'50~60자', outputLang:'English', faqDef:'What is [topic]? [topic] is ~ format', ctaPattern:'Explore [topic] on GoodPello now.', titlePattern:'[Core Keyword] – [Description] | GoodPello' },
+    ja: { m:'80~100자', t:'28~35자', outputLang:'Japanese', faqDef:'[topic]とは～です 형태', ctaPattern:'GoodPelloで[topic]をすぐに見つけましょう。', titlePattern:'[핵심키워드] – [설명] | GoodPello' }
   };
   const rules = langRules[lang] || langRules.ko;
 
-  return `당신은 GoodPello SEO 전략 지침 v2.5 전문가입니다.
+  return `You are a GoodPello SEO Strategy Guide v2.5 expert.
 
-[절대 규칙 - 모두 준수]
-1. 굿펠로는 PPT/파워포인트 템플릿 전문 플랫폼 — 일반 쇼핑몰/전자상거래 문맥 절대 금지
-2. 이 페이지의 독점 핵심 키워드: "${thisPageKeyword}" — 메타 디스크립션 첫 문장에 반드시 포함
+[CRITICAL: OUTPUT LANGUAGE]
+ALL output text (title, meta_description, banner_desc, faq_first_answer, faq_last_cta) MUST be written in ${rules.outputLang} ONLY.
+improvement_notes can be in Korean.
+
+[ABSOLUTE RULES]
+1. GoodPello is a PPT/PowerPoint template platform — NO general e-commerce context
+2. This page's exclusive keyword: "${thisPageKeyword}" — MUST appear at the start of meta_description
 3. ${cannibalRule}
-4. 현재 콘텐츠 맥락을 반드시 유지하며 보완 (완전히 새로 쓰지 말 것)
+4. Keep existing content context — do NOT rewrite from scratch
 
-[페이지 정보]
+[PAGE INFO]
 URL: ${r.url}
-이 페이지 독점 핵심 키워드: "${thisPageKeyword}"
-언어: ${lang} / 레이어: ${layer} / 현재 점수: ${r.score}점
+Exclusive keyword: "${thisPageKeyword}"
+Language: ${lang} / Layer: ${layer} / Current score: ${r.score}
 
-[현재 실제 콘텐츠 — 이 내용을 기반으로 보완]
-- 메타 디스크립션 (${(pd.metaDesc||'').length}자/${rules.m} 기준): "${pd.metaDesc || '(크롤링 실패)'}"
+[CURRENT CONTENT — base your improvement on this]
+- Current SEO title (${(pd.title||'').length}chars/${rules.t} target): "${pd.title || ''}"
+- Current meta description (${(pd.metaDesc||'').length}chars/${rules.m} target): "${pd.metaDesc || '(crawl failed)'}"
 - H1: "${pd.h1 || ''}"
-- 배너 설명: "${(pd.bannerDesc||'').substring(0,200)}"
-- FAQ 첫번째: "${(pd.faqs&&pd.faqs[0]||'').substring(0,200)}"
-- FAQ 마지막: "${(pd.faqs&&pd.faqs[pd.faqs.length-1]||'').substring(0,200)}"
+- Banner desc: "${(pd.bannerDesc||'').substring(0,200)}"
+- FAQ first: "${(pd.faqs&&pd.faqs[0]||'').substring(0,200)}"
+- FAQ last: "${(pd.faqs&&pd.faqs[pd.faqs.length-1]||'').substring(0,200)}"
 
-[부족한 항목]
+[FAILED/WARN ITEMS]
 ${failItems}
 
-JSON만 출력 (코드블록 없이):
-{"meta_description":"${thisPageKeyword}으로 시작하는 ${rules.m} 메타 디스크립션 (현재 내용 기반 보완)","banner_desc":"배너 설명이 부족한 경우만 보완안 제공 (없으면 빈 문자열)","faq_first_answer":"${thisPageKeyword}란/은 ~입니다 형태로 시작하는 FAQ 첫번째 답변${lang === 'en' ? ' (영어: What is [topic]? [topic] is ~ 형태)' : lang === 'ja' ? ' (일본어: [topic]とは～です 형태)' : ''}","faq_last_cta":"굿펠로에서 ${thisPageKeyword} 바로 찾기 유도 문구${lang === 'en' ? ' (영어: Explore [topic] on GoodPello now. 형태)' : lang === 'ja' ? ' (일본어: GoodPelloで[topic]をすぐに見つけましょう。형태)' : ''}","improvement_notes":"수정 참고사항"}`;
+Output JSON only (no code block). ALL text values in ${rules.outputLang}:
+{"seo_title":"Improved SEO title (${rules.t}, structure: ${rules.titlePattern}, exclusive keyword '${thisPageKeyword}' included)","meta_description":"Improved meta description (${rules.m}, starting with '${thisPageKeyword}')","banner_desc":"Improved banner description if length insufficient, else empty string","faq_first_answer":"FAQ first answer starting with '${rules.faqDef}'","faq_last_cta":"GoodPello CTA: '${rules.ctaPattern}'","improvement_notes":"개선 참고사항 (한국어 OK)"}`;
 }
 
 // ── 상세 페이지 보완 초안 프롬프트 (detail-pages-CLAUDE.md 기준)
@@ -941,6 +946,9 @@ function renderFixPanel(panel, result, type) {
   let html = '';
 
   if (type === 'internal') {
+    if (result.seo_title) {
+      html += makeFixField('📝 SEO 타이틀 수정안', result.seo_title);
+    }
     if (result.meta_description) {
       html += makeFixField('📝 메타 디스크립션 보완안', result.meta_description);
     }
