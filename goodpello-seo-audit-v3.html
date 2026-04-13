@@ -808,10 +808,32 @@ const googleLabels = {
   page_speed_hints:'페이지 속도 힌트', content_depth:'콘텐츠 깊이'
 };
 
+async function callClaudeRaw(prompt) {
+  const key = getKey();
+  if (!key) throw new Error('API 키를 입력해 주세요');
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '{}';
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
 async function runGoogleAudit(url, html) {
   const data = extractGoogleSEOData(html, url);
   const prompt = buildGooglePrompt(data);
-  const result = await callClaude(prompt);
+  const result = await callClaudeRaw(prompt);
   return { ...result, url, auditType: 'google', lang: data.lang };
 }
 
