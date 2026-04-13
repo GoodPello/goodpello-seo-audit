@@ -658,6 +658,159 @@ function exportCSV() {
   a.click();
 }
 </script>
+
+<style>
+.fix-btn { display: inline-block; margin-top: 12px; padding: 7px 16px; background: var(--accent); color: white; border: none; border-radius: 7px; font-size: 12px; cursor: pointer; font-family: var(--sans); font-weight: 500; transition: opacity 0.15s; }
+.fix-btn:hover { opacity: 0.8; }
+.fix-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.fix-panel { margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
+.fix-field { margin-bottom: 14px; }
+.fix-field-label { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; }
+.fix-field-label .copy-btn { padding: 2px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 10px; cursor: pointer; background: var(--white); color: var(--text2); font-family: var(--mono); }
+.fix-field-label .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.fix-field-content { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+.fix-loading { font-size: 12px; color: var(--text3); font-family: var(--mono); padding: 8px 0; }
+.fix-note { font-size: 11px; color: var(--text3); margin-top: 10px; padding: 8px 12px; background: var(--amber-bg); border-radius: 6px; border-left: 3px solid var(--amber); }
+</style>
+
+<script>
+// 보완 초안 생성 함수
+async function generateFix(btn, type, auditResult) {
+  const panel = btn.nextElementSibling;
+  btn.disabled = true;
+  btn.textContent = '생성 중...';
+  panel.style.display = 'block';
+  panel.innerHTML = '<div class="fix-loading">AI가 보완 초안을 작성하고 있습니다...</div>';
+
+  try {
+    const prompt = type === 'internal'
+      ? buildInternalFixPrompt(auditResult)
+      : buildGoogleFixPrompt(auditResult);
+
+    const result = await callClaudeRaw(prompt);
+    renderFixPanel(panel, result, type);
+    btn.textContent = '✦ 다시 생성';
+    btn.disabled = false;
+  } catch(e) {
+    panel.innerHTML = `<div class="fix-loading" style="color:var(--red)">오류: ${e.message}</div>`;
+    btn.textContent = '✦ AI 보완 초안 생성';
+    btn.disabled = false;
+  }
+}
+
+function buildInternalFixPrompt(r) {
+  const failItems = Object.entries(r.checks||{})
+    .filter(([k,v]) => v.status === 'fail' || v.status === 'warn')
+    .map(([k,v]) => `- ${k}: ${v.comment}`).join('\n');
+
+  return `GoodPello SEO 전략 지침 v2.5 기준으로 아래 페이지의 부족한 SEO 항목을 보완한 텍스트를 작성해주세요.
+
+URL: ${r.url}
+언어: ${r.lang || 'ko'}
+레이어: ${r.layer || 'L3'}
+현재 점수: ${r.score}점 (${r.grade}등급)
+
+부족한 항목:
+${failItems}
+
+현재 요약: ${r.summary || ''}
+주요 문제: ${(r.top_issues||[]).join(', ')}
+
+위 문제점을 해결하는 보완 텍스트를 JSON으로만 출력하세요 (코드블록 없이):
+{
+  "meta_description": "보완된 메타 디스크립션 (110~130자, 핵심키워드 앞배치)",
+  "faq_first_answer": "FAQ 첫 번째 답변을 정의형으로 수정 (~란/은 ~입니다 형태로 시작)",
+  "faq_last_cta": "마지막 FAQ 답변 끝에 붙일 굿펠로 유도 문구 (1~2문장)",
+  "improvement_notes": "수정 시 참고할 추가 설명"
+}`;
+}
+
+function buildGoogleFixPrompt(r) {
+  const failItems = Object.entries(r.checks||{})
+    .filter(([k,v]) => v.status === 'fail' || v.status === 'warn')
+    .map(([k,v]) => `- ${k}: ${v.comment}`).join('\n');
+
+  return `구글 SEO 전문가로서 아래 페이지의 구글 SEO 문제점을 보완한 텍스트를 작성해주세요.
+
+URL: ${r.url}
+언어: ${r.lang || 'ko'}
+현재 점수: ${r.score}점 (${r.grade}등급)
+
+부족한 항목:
+${failItems}
+
+주요 문제: ${(r.top_issues||[]).join(', ')}
+
+위 문제점을 해결하는 보완 초안을 JSON으로만 출력하세요 (코드블록 없이):
+{
+  "meta_description": "구글 최적화 메타 디스크립션 (150~160자, 클릭유도 포함)",
+  "h2_suggestions": ["개선된 H2 소제목 예시 1", "예시 2", "예시 3"],
+  "image_alt_guide": "이미지 alt 텍스트 작성 가이드라인 (이 페이지 맥락에 맞게)",
+  "improvement_notes": "구글 SEO 관점 추가 개선 제안"
+}`;
+}
+
+function renderFixPanel(panel, result, type) {
+  if (!result || typeof result !== 'object') {
+    panel.innerHTML = '<div class="fix-loading" style="color:var(--red)">응답 파싱 오류</div>';
+    return;
+  }
+
+  let html = '';
+
+  if (type === 'internal') {
+    if (result.meta_description) {
+      html += makeFixField('메타 디스크립션 보완안', result.meta_description);
+    }
+    if (result.faq_first_answer) {
+      html += makeFixField('FAQ 1번 답변 수정안 (정의형)', result.faq_first_answer);
+    }
+    if (result.faq_last_cta) {
+      html += makeFixField('FAQ 마지막 CTA 문구', result.faq_last_cta);
+    }
+    if (result.improvement_notes) {
+      html += makeFixField('추가 개선 메모', result.improvement_notes);
+    }
+  } else {
+    if (result.meta_description) {
+      html += makeFixField('메타 디스크립션 보완안', result.meta_description);
+    }
+    if (result.h2_suggestions && result.h2_suggestions.length) {
+      html += makeFixField('H2 소제목 개선안', result.h2_suggestions.join('\n'));
+    }
+    if (result.image_alt_guide) {
+      html += makeFixField('이미지 Alt 텍스트 가이드', result.image_alt_guide);
+    }
+    if (result.improvement_notes) {
+      html += makeFixField('추가 개선 제안', result.improvement_notes);
+    }
+  }
+
+  html += '<div class="fix-note">⚠️ AI가 생성한 초안입니다. 반드시 검토 후 관리자 페이지에 적용해 주세요.</div>';
+  panel.innerHTML = html;
+}
+
+function makeFixField(label, content) {
+  const id = 'fix-' + Math.random().toString(36).slice(2,8);
+  return `<div class="fix-field">
+    <div class="fix-field-label">
+      ${label}
+      <button class="copy-btn" onclick="copyFix('${id}')">복사</button>
+    </div>
+    <div class="fix-field-content" id="${id}">${content}</div>
+  </div>`;
+}
+
+function copyFix(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const btn = el.previousElementSibling?.querySelector('.copy-btn');
+    if (btn) { btn.textContent = '복사됨!'; setTimeout(() => btn.textContent = '복사', 1500); }
+  });
+}
+</script>
+
 </body>
 </html>
 
@@ -863,6 +1016,8 @@ function renderGoogleResult(r) {
     ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
     ${strengths ? `<div class="strengths">${strengths}</div>` : ''}
     ${issues ? `<div class="issues">${issues}</div>` : ''}
+    <button class="fix-btn" onclick="generateFix(this, 'google', ${JSON.stringify(r).replace(/`/g,'\`')})">✦ AI 보완 초안 생성</button>
+    <div class="fix-panel" style="display:none;"></div>
   </div>`;
 }
 
@@ -1006,6 +1161,8 @@ function renderInternalResultCard(r) {
     <div class="checks">${checksHtml}</div>
     ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
     ${issues ? `<div class="issues">${issues}</div>` : ''}
+    <button class="fix-btn" onclick="generateFix(this, 'internal', ${JSON.stringify(r).replace(/`/g,'\`')})">✦ AI 보완 초안 생성</button>
+    <div class="fix-panel" style="display:none;"></div>
   </div>`;
 }
 </script>
