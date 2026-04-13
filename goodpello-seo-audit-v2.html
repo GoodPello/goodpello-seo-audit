@@ -205,7 +205,11 @@
 </div>
 
 <script>
-const PROXY = 'https://api.allorigins.win/get?url=';
+const PROXIES = [
+  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 const API_URL = 'https://api.anthropic.com/v1/messages';
 let allResults = [];
 
@@ -273,9 +277,25 @@ function detectLayer(url) {
 
 // ── 페이지 크롤링
 async function fetchPage(url) {
-  const res = await fetch(PROXY + encodeURIComponent(url));
-  const data = await res.json();
-  return data.contents || '';
+  const proxies = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ];
+  for (const proxyFn of proxies) {
+    try {
+      const res = await fetch(proxyFn(url));
+      if (!res.ok) continue;
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.contents && json.contents.length > 500) return json.contents;
+      } catch(e) {
+        if (text.length > 500 && text.includes('<')) return text;
+      }
+    } catch(e) { continue; }
+  }
+  throw new Error('페이지를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
 }
 
 // ── HTML에서 SEO 데이터 추출
