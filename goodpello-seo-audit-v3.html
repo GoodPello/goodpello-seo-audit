@@ -292,9 +292,9 @@ function detectLayer(url) {
 // ── 페이지 크롤링
 async function fetchPage(url) {
   const proxies = [
-    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
     u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://thingproxy.freeboard.io/fetch/${u}`,
   ];
   for (const proxyFn of proxies) {
     try {
@@ -722,52 +722,94 @@ function buildInternalFixPrompt(r) {
   const failItems = Object.entries(r.checks||{})
     .filter(([k,v]) => v.status === 'fail' || v.status === 'warn')
     .map(([k,v]) => `- ${k}: ${v.comment}`).join('\n');
+  const pd = r.pageData || {};
+  const lang = r.lang || 'ko';
+  const layer = r.layer || 'L3';
+  const urlPath = r.url.replace('https://www.goodpello.com','');
+  const categoryHint = urlPath.includes('biztoolkit') ? '비즈 툴킷 - 사업계획서/보고서/제안서/IR 등 비즈니스 문서 PPT 작성법 가이드' :
+    urlPath.includes('/2') ? '표준목차 템플릿 - PPT 표준 목차 구성 템플릿' :
+    urlPath.includes('/1') ? '산업별 PPT 템플릿 - 업종별 파워포인트 디자인' :
+    urlPath.includes('/24') ? '내용별 슬라이드 - PPT 슬라이드 소재 모음' :
+    urlPath.includes('/25') ? '디자인별 슬라이드 - 다이어그램/그래프 PPT 슬라이드' :
+    urlPath.includes('/248') ? '무료 PPT 템플릿 - 무료 파워포인트 다운로드' : 'PPT 템플릿/슬라이드 카테고리';
+  const langRules = {
+    ko: { m:'110~130자' },
+    en: { m:'140~160자' },
+    ja: { m:'80~100자' }
+  };
+  const rules = langRules[lang] || langRules.ko;
 
-  return `GoodPello SEO 전략 지침 v2.5 기준으로 아래 페이지의 부족한 SEO 항목을 보완한 텍스트를 작성해주세요.
+  return `당신은 GoodPello SEO 전략 지침 v2.5 전문가입니다.
 
+[절대 규칙 - 반드시 준수]
+1. 굿펠로(GoodPello)는 PPT/파워포인트 템플릿 전문 플랫폼입니다
+2. 보완 텍스트에 PPT, 파워포인트, 슬라이드, 발표자료, 프레젠테이션 중 2~3개 반드시 포함
+3. 일반 쇼핑몰/전자상거래/제품판매 문맥 절대 금지
+4. 아래 [현재 실제 콘텐츠]를 반드시 참고하여 기존 문장 맥락 유지하며 보완
+
+[페이지 정보]
 URL: ${r.url}
-언어: ${r.lang || 'ko'}
-레이어: ${r.layer || 'L3'}
+카테고리: ${categoryHint}
+언어: ${lang} / 레이어: ${layer}
 현재 점수: ${r.score}점 (${r.grade}등급)
 
-부족한 항목:
+[현재 실제 콘텐츠 - 이 내용을 기반으로 보완할 것]
+- 현재 메타 디스크립션 (${(pd.metaDesc||'').length}자): "${pd.metaDesc || '(크롤링 실패 - URL과 카테고리 맥락 참고)'}"
+- 현재 H1: "${pd.h1 || ''}"
+- 현재 배너 설명: "${(pd.bannerDesc||'').substring(0,150)}"
+- 현재 FAQ 첫번째: "${(pd.faqs&&pd.faqs[0]||'').substring(0,200)}"
+- 현재 FAQ 마지막: "${(pd.faqs&&pd.faqs[pd.faqs.length-1]||'').substring(0,200)}"
+
+[전략 지침 v2.5 규칙]
+- 메타 디스크립션: ${rules.m} / 핵심 키워드 앞 배치 / PPT 관련 동의어 혼용
+- FAQ 첫번째 답변: "[주제]란/은/는 ~입니다" 정의형으로 시작 필수
+- FAQ 마지막 CTA: "굿펠로에서 [카테고리 주제] PPT를 바로 찾아보세요" 형태로 마무리
+
+[부족한 항목]
 ${failItems}
 
-현재 요약: ${r.summary || ''}
-주요 문제: ${(r.top_issues||[]).join(', ')}
-
-위 문제점을 해결하는 보완 텍스트를 JSON으로만 출력하세요 (코드블록 없이):
-{
-  "meta_description": "보완된 메타 디스크립션 (110~130자, 핵심키워드 앞배치)",
-  "faq_first_answer": "FAQ 첫 번째 답변을 정의형으로 수정 (~란/은 ~입니다 형태로 시작)",
-  "faq_last_cta": "마지막 FAQ 답변 끝에 붙일 굿펠로 유도 문구 (1~2문장)",
-  "improvement_notes": "수정 시 참고할 추가 설명"
-}`;
+위 실제 콘텐츠와 카테고리 맥락을 반영하여 PPT/파워포인트 관련 키워드가 포함된 보완 텍스트를 작성하세요.
+JSON만 출력 (코드블록 없이):
+{"meta_description":"보완된 메타 디스크립션 (${rules.m}, PPT 키워드 포함, 현재 내용 맥락 유지)","faq_first_answer":"FAQ 첫번째 답변 정의형 수정안 (~란/은 ~입니다로 시작, PPT 맥락 유지)","faq_last_cta":"마지막 FAQ 끝에 붙일 굿펠로 PPT 유도 문구","improvement_notes":"수정 참고사항"}`;
 }
 
 function buildGoogleFixPrompt(r) {
   const failItems = Object.entries(r.checks||{})
     .filter(([k,v]) => v.status === 'fail' || v.status === 'warn')
     .map(([k,v]) => `- ${k}: ${v.comment}`).join('\n');
+  const lang = r.lang || 'ko';
+  const metaLen = lang === 'en' ? '150~160자' : lang === 'ja' ? '80~100자' : '110~130자';
+  const urlPath = r.url.replace('https://www.goodpello.com','');
+  const categoryHint = urlPath.includes('biztoolkit') ? '비즈 툴킷 - 비즈니스 문서 PPT 작성법' :
+    urlPath.includes('/2') ? '표준목차 PPT 템플릿' :
+    urlPath.includes('/1') ? '산업별 PPT 템플릿' :
+    urlPath.includes('/24') ? '내용별 PPT 슬라이드' :
+    urlPath.includes('/25') ? '디자인별 PPT 슬라이드' :
+    urlPath.includes('/248') ? '무료 PPT 템플릿' : 'PPT 템플릿 카테고리';
 
-  return `구글 SEO 전문가로서 아래 페이지의 구글 SEO 문제점을 보완한 텍스트를 작성해주세요.
+  return `구글 SEO 전문가로서 아래 PPT 템플릿 사이트 페이지를 보완해주세요.
 
+[절대 규칙]
+1. 굿펠로(GoodPello)는 PPT/파워포인트 템플릿 전문 플랫폼 - 일반 쇼핑몰 아님
+2. 모든 보완 텍스트에 PPT, 파워포인트, 슬라이드, 발표자료, 프레젠테이션 중 관련 키워드 포함
+3. 이 카테고리 맥락에 맞게 작성: ${categoryHint}
+
+[페이지 정보]
 URL: ${r.url}
-언어: ${r.lang || 'ko'}
-현재 점수: ${r.score}점 (${r.grade}등급)
+언어: ${lang}
+현재 구글 SEO 점수: ${r.score}점 (${r.grade}등급)
 
-부족한 항목:
+[부족한 항목]
 ${failItems}
 
-주요 문제: ${(r.top_issues||[]).join(', ')}
+[강점 (유지할 것)]
+${(r.strengths||[]).join(', ')}
 
-위 문제점을 해결하는 보완 초안을 JSON으로만 출력하세요 (코드블록 없이):
-{
-  "meta_description": "구글 최적화 메타 디스크립션 (150~160자, 클릭유도 포함)",
-  "h2_suggestions": ["개선된 H2 소제목 예시 1", "예시 2", "예시 3"],
-  "image_alt_guide": "이미지 alt 텍스트 작성 가이드라인 (이 페이지 맥락에 맞게)",
-  "improvement_notes": "구글 SEO 관점 추가 개선 제안"
-}`;
+[주요 문제]
+${(r.top_issues||[]).join(', ')}
+
+JSON만 출력 (코드블록 없이):
+{"meta_description":"구글 최적화 메타 디스크립션 (${metaLen}, PPT 키워드 포함, 클릭 유도)","h2_suggestions":["이 PPT 카테고리에 맞는 H2 소제목 1","소제목 2","소제목 3"],"image_alt_guide":"이 페이지 PPT 이미지들에 적합한 alt 텍스트 작성 원칙 및 예시 3개","improvement_notes":"구글 E-E-A-T 관점 PPT 전문성 강화 제안"}`;
 }
 
 function renderFixPanel(panel, result, type) {
