@@ -308,37 +308,41 @@ function extractListData(html, url) {
   const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
   const h1 = doc.querySelector('h1')?.textContent?.trim() || '';
 
-  // 배너 설명: H1 바로 다음 p 태그
-  let bannerDesc = '';
-  const h1el = doc.querySelector('h1');
-  if (h1el) {
-    let next = h1el.nextElementSibling;
-    while (next) {
-      const txt = next.textContent.trim();
-      if (txt.length > 30) { bannerDesc = txt; break; }
-      next = next.nextElementSibling;
+  // 배너 설명: 굿펠로 .cat-banner-desc 클래스 우선
+  let bannerDesc = doc.querySelector('.cat-banner-desc')?.textContent?.trim() || '';
+  if (!bannerDesc) {
+    const h1el = doc.querySelector('h1');
+    if (h1el) {
+      let next = h1el.nextElementSibling;
+      while (next) {
+        const txt = next.textContent.trim();
+        if (txt.length > 30) { bannerDesc = txt; break; }
+        next = next.nextElementSibling;
+      }
     }
   }
 
-  // 하단 SEO 본문: h3 뒤 첫 번째 긴 p
-  let seoBody = '';
-  doc.querySelectorAll('h3').forEach(h3 => {
-    if (seoBody) return;
-    let next = h3.nextElementSibling;
-    while (next) {
-      const txt = next.textContent.trim();
-      if (txt.length > 80) { seoBody = txt; return; }
-      next = next.nextElementSibling;
-    }
-  });
+  // 하단 SEO 본문: 굿펠로 .seo-text 클래스 우선
+  let seoBody = doc.querySelector('.seo-text')?.textContent?.trim() || '';
+  if (!seoBody) {
+    doc.querySelectorAll('h3').forEach(h3 => {
+      if (seoBody) return;
+      let next = h3.nextElementSibling;
+      while (next) {
+        const txt = next.textContent.trim();
+        if (txt.length > 80) { seoBody = txt; return; }
+        next = next.nextElementSibling;
+      }
+    });
+  }
 
-  // FAQ
+  // FAQ 추출 (굿펠로 구조: .faq-item > .faq-question + .faq-answer)
   const faqs = [];
-  doc.querySelectorAll('li').forEach(li => {
-    const text = li.textContent.trim();
-    if (text.length > 20 && faqs.length < 3 && li.closest('.faq, [class*="faq"]')) {
-      faqs.push(text);
-    }
+  doc.querySelectorAll('.faq-item').forEach(item => {
+    if (faqs.length >= 3) return;
+    const q = item.querySelector('.faq-question')?.textContent?.trim() || '';
+    const a = item.querySelector('.faq-answer')?.textContent?.trim() || '';
+    if (q) faqs.push('Q: ' + q + ' / A: ' + a);
   });
   // fallback: ol li
   if (faqs.length === 0) {
