@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoodPello SEO 감사 도구 v4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg: #f5f5f3;
+    --white: #ffffff;
+    --border: #e2e2de;
+    --text: #1a1a1a;
+    --text2: #6b6b6b;
+    --text3: #a0a0a0;
+    --green: #16a34a;
+    --green-bg: #f0fdf4;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --blue: #2563eb;
+    --blue-bg: #eff6ff;
+    --accent: #18181b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* Header */
+  .header { margin-bottom: 2.5rem; }
+  .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .logo { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; color: var(--text3); text-transform: uppercase; }
+  .header h1 { font-size: 20px; font-weight: 500; }
+  .header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+  /* API Key */
+  .api-row { display: flex; gap: 8px; align-items: center; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 1.5rem; }
+  .api-row label { font-size: 11px; font-family: var(--mono); color: var(--text3); white-space: nowrap; }
+  .api-row input { flex: 1; border: none; outline: none; font-family: var(--mono); font-size: 12px; color: var(--text); background: transparent; }
+  .api-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.2s; }
+  .api-dot.ok { background: var(--green); }
+
+  /* Input card */
+  .input-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .input-label { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .url-row { display: flex; gap: 8px; }
+  .url-input { flex: 1; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--mono); color: var(--text); outline: none; background: var(--bg); transition: border-color 0.15s; }
+  .url-input:focus { border-color: var(--accent); }
+  .run-btn { height: 40px; padding: 0 20px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; font-family: var(--sans); transition: opacity 0.15s; }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+  .run-btn.loading .spinner { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Batch */
+  .batch-textarea { width: 100%; min-height: 100px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-family: var(--mono); color: var(--text); background: var(--bg); resize: vertical; outline: none; line-height: 1.6; }
+  .batch-textarea:focus { border-color: var(--accent); }
+  .batch-hint { font-size: 11px; color: var(--text3); margin-top: 6px; font-family: var(--mono); }
+  .batch-run-row { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 1rem; }
+  .tab { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--white); color: var(--text2); font-size: 12px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Progress */
+  .progress-wrap { margin: 1rem 0; display: none; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s; width: 0%; }
+  .progress-text { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-top: 6px; }
+
+  /* Status */
+  .status-msg { padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); margin-bottom: 1rem; display: none; }
+  .status-msg.error { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+  .status-msg.info { background: var(--blue-bg); color: var(--blue); border: 1px solid #bfdbfe; }
+
+  /* Summary */
+  .summary-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 1.5rem; }
+  .summary-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+  .summary-label { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .summary-value { font-size: 22px; font-weight: 500; font-family: var(--mono); }
+  .c-green { color: var(--green); }
+  .c-amber { color: var(--amber); }
+  .c-red { color: var(--red); }
+
+  /* Result card */
+  .result-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 10px; }
+  .result-card.grade-A { border-left: 3px solid var(--green); }
+  .result-card.grade-B { border-left: 3px solid #86efac; }
+  .result-card.grade-C { border-left: 3px solid var(--amber); }
+  .result-card.grade-D { border-left: 3px solid var(--red); }
+
+  .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .result-url { font-size: 12px; font-family: var(--mono); color: var(--blue); word-break: break-all; }
+  .result-url a { color: inherit; text-decoration: none; }
+  .result-url a:hover { text-decoration: underline; }
+  .result-type { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .grade-box { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .grade-badge { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 18px; font-weight: 500; }
+  .badge-A { background: var(--green-bg); color: var(--green); }
+  .badge-B { background: #f0fdf4; color: #16a34a; opacity: 0.7; }
+  .badge-C { background: var(--amber-bg); color: var(--amber); }
+  .badge-D { background: var(--red-bg); color: var(--red); }
+  .grade-score { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+
+  /* Checks */
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 10px; }
+  .check { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; }
+  .check.pass { background: var(--green-bg); color: var(--green); }
+  .check.warn { background: var(--amber-bg); color: var(--amber); }
+  .check.fail { background: var(--red-bg); color: var(--red); }
+  .check-icon { font-size: 10px; flex-shrink: 0; }
+
+  .result-summary { font-size: 12px; color: var(--text2); line-height: 1.65; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 8px; }
+  .issues { display: flex; flex-direction: column; gap: 3px; }
+  .issue { font-size: 11px; font-family: var(--mono); color: var(--red); padding: 3px 8px; background: var(--red-bg); border-radius: 4px; }
+
+  /* Export */
+  .export-row { display: flex; gap: 8px; margin-top: 1.5rem; justify-content: flex-end; }
+  .export-btn { padding: 7px 16px; background: var(--white); border: 1px solid var(--border); border-radius: 7px; font-size: 12px; cursor: pointer; font-family: var(--mono); color: var(--text2); transition: all 0.15s; }
+  .export-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  #results-wrap { display: none; margin-top: 2rem; }
+  .mode-row { display: flex; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .mode-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--white); color: var(--text2); font-size: 12px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+  .mode-btn:hover { border-color: var(--accent); color: var(--text); }
+  .mode-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .audit-section { margin-bottom: 2rem; }
+  .audit-section-title { font-size: 13px; font-weight: 500; color: var(--text2); font-family: var(--mono); margin-bottom: 1rem; padding: 6px 12px; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--accent); }
+  .audit-section-title.google { border-left-color: #4285f4; color: #1a73e8; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-top">
+      <span class="logo">GoodPello</span>
+    </div>
+    <h1>SEO 감사 도구</h1>
+    <p>전략 지침 v2.5 + 구글 SEO 기준으로 동시에 채점합니다</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="api-row">
+    <label>API KEY</label>
+    <input type="password" id="api-key" placeholder="sk-ant-api..." oninput="updateDot()" />
+    <div class="api-dot" id="api-dot"></div>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="mode-row">
+    <button class="mode-btn active" id="mode-btn-internal" onclick="setAuditMode('internal')">📋 내부 기준 (전략 지침 v2.5)</button>
+    <button class="mode-btn" id="mode-btn-google" onclick="setAuditMode('google')">🔍 구글 SEO 기준</button>
+    <button class="mode-btn" id="mode-btn-both" onclick="setAuditMode('both')">⚡ 둘 다 동시에</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('single', this)">단일 URL</button>
+    <button class="tab" onclick="switchTab('batch', this)">일괄 URL</button>
+  </div>
+
+  <!-- Single -->
+  <div id="tab-single">
+    <div class="input-card">
+      <div class="input-label">페이지 URL</div>
+      <div class="url-row">
+        <input type="text" class="url-input" id="single-url"
+          placeholder="https://www.goodpello.com/ko/products/category/1"
+          onkeydown="if(event.key==='Enter') runSingle()" />
+        <button class="run-btn" id="single-btn" onclick="runSingle()">
+          <div class="spinner"></div>
+          <span>감사 실행</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch -->
+  <div id="tab-batch" style="display:none;">
+    <div class="input-card">
+      <div class="input-label">URL 목록 (줄바꿈으로 구분)</div>
+      <textarea class="batch-textarea" id="batch-urls"
+        placeholder="https://www.goodpello.com/ko/products/category/1&#10;https://www.goodpello.com/en/products/category/1&#10;https://www.goodpello.com/ko/products/21255"></textarea>
+      <p class="batch-hint">※ 리스트 페이지(/category/)와 상세 페이지(/products/) 혼합 입력 가능</p>
+      <div class="batch-run-row">
+        <button class="run-btn" id="batch-btn" onclick="runBatch()">
+          <div class="spinner"></div>
+          <span>일괄 감사 실행</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-msg" id="status-msg"></div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-text" id="progress-text"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results-wrap">
+    <div class="summary-row" id="summary-row"></div>
+    <div id="results-list"></div>
+    <div class="export-row">
+      <button class="export-btn" onclick="exportCSV()">CSV 내보내기</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PROXIES = [
+  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+const API_URL = 'https://api.anthropic.com/v1/messages';
+let allResults = [];
+
+function getKey() { return document.getElementById('api-key').value.trim(); }
+function updateDot() {
+  const ok = getKey().startsWith('sk-ant-');
+  document.getElementById('api-dot').className = 'api-dot' + (ok ? ' ok' : '');
+}
+
+function switchTab(tab, btn) {
+  document.getElementById('tab-single').style.display = tab === 'single' ? '' : 'none';
+  document.getElementById('tab-batch').style.display = tab === 'batch' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.className = 'status-msg ' + (type || 'info');
+  el.textContent = msg;
+}
+
+function setProgress(n, total) {
+  const wrap = document.getElementById('progress-wrap');
+  if (!total) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  document.getElementById('progress-fill').style.width = Math.round(n / total * 100) + '%';
+  document.getElementById('progress-text').textContent = `${n} / ${total} 처리 중...`;
+}
+
+function setBtnLoading(id, on) {
+  const btn = document.getElementById(id);
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+}
+
+// ── URL에서 페이지 타입 감지
+function detectType(url) {
+  if (/\/products\/category\//.test(url)) return 'list';
+  if (/\/products\/\d+/.test(url)) return 'detail';
+  if (/\/biztoolkit/.test(url)) return 'list';
+  return 'list';
+}
+
+function detectLang(url) {
+  const m = url.match(/\/(ko|en|ja)\//);
+  return m ? m[1] : 'ko';
+}
+
+function detectLayer(url) {
+  // URL depth 기반 레이어 추정 (category ID로 전략 지침 매핑)
+  const catMatch = url.match(/category\/(\d+)/);
+  if (!catMatch) return 'L3';
+  const id = parseInt(catMatch[1]);
+  // L2: 1,2,3,24,25,248
+  if ([1,2,3,24,25,248].includes(id)) return 'L2';
+  // L5: 205~236 (다이어그램/그래프 세분류)
+  if (id >= 205 && id <= 236) return 'L5';
+  // L4: 47~204, 237~279 (소분류)
+  if ((id >= 47 && id <= 204) || (id >= 237 && id <= 279)) return 'L4';
+  return 'L3';
+}
+
+// ── 페이지 크롤링
+async function fetchPage(url) {
+  const proxies = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ];
+  for (const proxyFn of proxies) {
+    try {
+      const res = await fetch(proxyFn(url));
+      if (!res.ok) continue;
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.contents && json.contents.length > 500) return json.contents;
+      } catch(e) {
+        if (text.length > 500 && text.includes('<')) return text;
+      }
+    } catch(e) { continue; }
+  }
+  throw new Error('페이지를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+}
+
+// ── HTML에서 SEO 데이터 추출
+function extractListData(html, url) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const lang = detectLang(url);
+  const layer = detectLayer(url);
+
+  const title = doc.querySelector('title')?.textContent?.trim() || '';
+  const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+  const h1 = doc.querySelector('h1')?.textContent?.trim() || '';
+
+  // 배너 설명: 굿펠로 .cat-banner-desc 클래스 우선
+  let bannerDesc = doc.querySelector('.cat-banner-desc')?.textContent?.trim() || '';
+  if (!bannerDesc) {
+    const h1el = doc.querySelector('h1');
+    if (h1el) {
+      let next = h1el.nextElementSibling;
+      while (next) {
+        const txt = next.textContent.trim();
+        if (txt.length > 30) { bannerDesc = txt; break; }
+        next = next.nextElementSibling;
+      }
+    }
+  }
+
+  // 하단 SEO 본문: 굿펠로 .seo-text 클래스 우선
+  let seoBody = doc.querySelector('.seo-text')?.textContent?.trim() || '';
+  if (!seoBody) {
+    doc.querySelectorAll('h3').forEach(h3 => {
+      if (seoBody) return;
+      let next = h3.nextElementSibling;
+      while (next) {
+        const txt = next.textContent.trim();
+        if (txt.length > 80) { seoBody = txt; return; }
+        next = next.nextElementSibling;
+      }
+    });
+  }
+
+  // FAQ 추출 (굿펠로 구조: .faq-item > .faq-question + .faq-answer)
+  const faqs = [];
+  doc.querySelectorAll('.faq-item').forEach(item => {
+    if (faqs.length >= 3) return;
+    const q = item.querySelector('.faq-question')?.textContent?.trim() || '';
+    const a = item.querySelector('.faq-answer')?.textContent?.trim() || '';
+    if (q) faqs.push('Q: ' + q + ' / A: ' + a);
+  });
+  // fallback: ol li
+  if (faqs.length === 0) {
+    doc.querySelectorAll('ol li').forEach((li, i) => {
+      if (i < 3) faqs.push(li.textContent.trim());
+    });
+  }
+
+  return { url, lang, layer, type: 'list', title, metaDesc, h1, bannerDesc, seoBody, faqs };
+}
+
+function extractDetailData(html, url) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const lang = detectLang(url);
+
+  const title = doc.querySelector('title')?.textContent?.trim() || '';
+  const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+  const h1 = doc.querySelector('h1')?.textContent?.trim() || '';
+
+  // 상품 설명: h2 "제품설명" 다음 p
+  let productDesc = '';
+  doc.querySelectorAll('h2').forEach(h2 => {
+    if (productDesc) return;
+    if (h2.textContent.includes('제품설명') || h2.textContent.includes('Product') || h2.textContent.includes('商品')) {
+      let next = h2.nextElementSibling;
+      while (next) {
+        const txt = next.textContent.trim();
+        if (txt.length > 50) { productDesc = txt; return; }
+        next = next.nextElementSibling;
+      }
+    }
+  });
+
+  // 키워드: # 태그
+  const keywords = [];
+  doc.querySelectorAll('a[href*="keyword"], a[href*="tag"]').forEach(a => {
+    const txt = a.textContent.trim().replace(/^#/, '');
+    if (txt && txt.length > 1 && !txt.includes('/') && keywords.length < 8) keywords.push(txt);
+  });
+
+  // 활용 포인트
+  const usagePoints = { main_purpose: '', how_to_use: '', recommended_for: '', slide_structure: '' };
+  const keys = ['주요 용도', '활용 방식', '추천 대상', '슬라이드 구성'];
+  const fields = ['main_purpose', 'how_to_use', 'recommended_for', 'slide_structure'];
+  doc.querySelectorAll('strong, b').forEach(el => {
+    const txt = el.textContent.trim();
+    keys.forEach((key, i) => {
+      if (txt.includes(key)) {
+        const parent = el.closest('li, div, p');
+        if (parent) {
+          const content = parent.textContent.replace(txt, '').trim().replace(/^[-–:]\s*/, '');
+          if (content.length > 10) usagePoints[fields[i]] = content;
+        }
+      }
+    });
+  });
+
+  return { url, lang, type: 'detail', title, metaDesc, h1, productDesc, keywords, usagePoints };
+}
+
+// ── Claude 채점
+async function auditWithClaude(data) {
+  const key = getKey();
+  const prompt = data.type === 'list' ? buildListPrompt(data) : buildDetailPrompt(data);
+
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const result = await res.json();
+  const text = result.content?.[0]?.text || '{}';
+  try {
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
+  } catch(e) {
+    return { score: 0, grade: 'D', checks: {}, summary: 'API 응답 파싱 오류', top_issues: [] };
+  }
+}
+
+function buildListPrompt(d) {
+  const rules = {
+    ko: { t:[30,50], m:[110,130], banner:{L2:[200,300],L3:[150,250],L4:[80,150],L5:[60,120]}, body:{L2:[300,400],L3:[250,350],L4:[150,250],L5:[120,200]} },
+    en: { t:[50,60], m:[140,160], banner:{L2:[180,270],L3:[130,220],L4:[70,130],L5:[50,100]}, body:{L2:[260,360],L3:[220,310],L4:[130,220],L5:[100,170]} },
+    ja: { t:[28,35], m:[80,100],  banner:{L2:[140,220],L3:[110,180],L4:[60,110],L5:[45,90]},  body:{L2:[220,300],L3:[180,260],L4:[110,180],L5:[85,140]} }
+  };
+  const r = rules[d.lang] || rules.ko;
+  const br = r.banner[d.layer] || r.banner.L3;
+  const bor = r.body[d.layer] || r.body.L3;
+
+  return `GoodPello SEO 전략 지침 v2.5 기준으로 아래 리스트 페이지를 채점하세요.
+
+URL: ${d.url}
+언어: ${d.lang} / 레이어: ${d.layer}
+
+[추출 데이터]
+SEO 타이틀 (${d.title.length}자, 기준 ${r.t[0]}~${r.t[1]}자): "${d.title}"
+메타 디스크립션 (${d.metaDesc.length}자, 기준 ${r.m[0]}~${r.m[1]}자): "${d.metaDesc}"
+H1: "${d.h1}"
+배너 설명 (${d.bannerDesc.length}자, 기준 ${br[0]}~${br[1]}자): "${d.bannerDesc.substring(0,300)}"
+하단 본문 (${d.seoBody.length}자, 기준 ${bor[0]}~${bor[1]}자): "${d.seoBody.substring(0,400)}"
+FAQ ${d.faqs.length}개: ${d.faqs.map((f,i)=>`FAQ${i+1}: "${f.substring(0,100)}"`).join(' / ')}
+
+채점 항목 (각 pass/warn/fail):
+1. title_length: 글자수 기준 충족
+2. title_structure: "[키워드] – [부연] | 굿펠로(GoodPello)" 구조
+3. title_keyword: 단순나열 금지, 정보형/결과형/방법형
+4. meta_length: 글자수 기준 충족
+5. meta_keyword: 핵심 키워드 앞쪽 배치
+6. banner_length: 글자수 기준 충족
+7. body_length: 글자수 기준 충족
+8. faq_count: 3개 이상
+9. faq_definition: 첫 FAQ 답변이 정의형("[~]란/은 ~입니다") 시작
+10. faq_cta: 마지막 FAQ에 굿펠로 유도 문구 포함
+11. synonym_variety: PPT/파워포인트/슬라이드/발표자료 동의어 혼용
+
+점수: pass=9점, warn=5점, fail=0점 (최대 99점+보너스1점=100점)
+등급: A≥85 / B≥70 / C≥55 / D<55
+
+JSON만 출력 (코드블록 없이):
+{"score":0,"grade":"A","checks":{"title_length":{"status":"pass","comment":""},"title_structure":{"status":"pass","comment":""},"title_keyword":{"status":"pass","comment":""},"meta_length":{"status":"pass","comment":""},"meta_keyword":{"status":"pass","comment":""},"banner_length":{"status":"pass","comment":""},"body_length":{"status":"pass","comment":""},"faq_count":{"status":"pass","comment":""},"faq_definition":{"status":"pass","comment":""},"faq_cta":{"status":"pass","comment":""},"synonym_variety":{"status":"pass","comment":""}},"summary":"요약","top_issues":[]}`;
+}
+
+function buildDetailPrompt(d) {
+  const rules = { ko:[25,40,300,400,110,130], en:[40,60,400,550,130,155], ja:[20,35,250,350,80,100] };
+  const r = rules[d.lang] || rules.ko;
+
+  return `GoodPello SEO 전략 지침 v2.5 기준으로 아래 상세 페이지를 채점하세요.
+
+URL: ${d.url}
+언어: ${d.lang}
+
+[추출 데이터]
+상품명/타이틀 (${d.h1.length}자, 기준 ${r[0]}~${r[1]}자): "${d.h1}"
+메타 디스크립션 (${d.metaDesc.length}자, 기준 ${r[4]}~${r[5]}자): "${d.metaDesc}"
+상품 설명 (${d.productDesc.length}자, 기준 ${r[2]}~${r[3]}자): "${d.productDesc.substring(0,400)}"
+키워드 ${d.keywords.length}개 (기준 4~6개): "${d.keywords.join(', ')}"
+활용포인트: main_purpose="${d.usagePoints.main_purpose.substring(0,80)}", how_to_use="${d.usagePoints.how_to_use.substring(0,80)}", recommended_for="${d.usagePoints.recommended_for.substring(0,80)}", slide_structure="${d.usagePoints.slide_structure.substring(0,80)}"
+
+채점 항목 (각 pass/warn/fail):
+1. product_name_length: 글자수 기준 충족
+2. product_name_modifier: 색상·슬라이드수·디자인특성 등 구체적 수식어 포함
+3. description_length: 글자수 기준 충족
+4. synonym_variety: PPT·파워포인트·프레젠테이션·발표자료·슬라이드 동의어 3~5개 혼용
+5. keyword_count: 4~6개 (3개 이하 금지)
+6. en_longtail: (영어만) how to / template download / N-slide deck 패턴 포함
+7. ja_katakana: (일본어만) カタカナ 포함 + 롱테일 패턴
+8. meta_length: 글자수 기준 충족
+9. usage_points_complete: 4개 항목 모두 존재하고 내용이 있는지
+10. no_unverified_visual: "세련된·화려한" 등 이미지 미확인 단정 표현 없음
+11. overall_quality: 전체 SEO 품질
+
+점수: pass=9점, warn=5점, fail=0점
+등급: A≥85 / B≥70 / C≥55 / D<55
+
+JSON만 출력 (코드블록 없이):
+{"score":0,"grade":"A","checks":{"product_name_length":{"status":"pass","comment":""},"product_name_modifier":{"status":"pass","comment":""},"description_length":{"status":"pass","comment":""},"synonym_variety":{"status":"pass","comment":""},"keyword_count":{"status":"pass","comment":""},"en_longtail":{"status":"pass","comment":""},"ja_katakana":{"status":"pass","comment":""},"meta_length":{"status":"pass","comment":""},"usage_points_complete":{"status":"pass","comment":""},"no_unverified_visual":{"status":"pass","comment":""},"overall_quality":{"status":"pass","comment":""}},"summary":"요약","top_issues":[]}`;
+}
+
+// ── 실행
+async function auditUrl(url) {
+  url = url.trim();
+  const html = await fetchPage(url);
+  if (!html || html.length < 500) throw new Error('페이지를 불러올 수 없습니다: ' + url);
+  const type = detectType(url);
+  const data = type === 'list' ? extractListData(html, url) : extractDetailData(html, url);
+  const audit = await auditWithClaude(data);
+  return { ...audit, url, pageType: type, lang: data.lang, layer: data.layer || '' };
+}
+
+async function runSingle() {
+  if (!getKey()) return setStatus('API 키를 먼저 입력해 주세요', 'error');
+  const url = document.getElementById('single-url').value.trim();
+  if (!url) return setStatus('URL을 입력해 주세요', 'error');
+  setBtnLoading('single-btn', true);
+  setStatus('페이지 분석 중...', 'info');
+  try {
+    const result = await auditUrl(url);
+    allResults = [result];
+    renderResults(allResults);
+    setStatus('');
+  } catch(e) {
+    setStatus('오류: ' + e.message, 'error');
+  }
+  setBtnLoading('single-btn', false);
+}
+
+async function runBatch() {
+  if (!getKey()) return setStatus('API 키를 먼저 입력해 주세요', 'error');
+  const raw = document.getElementById('batch-urls').value;
+  const urls = raw.split('\n').map(u => u.trim()).filter(u => u.startsWith('http'));
+  if (!urls.length) return setStatus('URL을 입력해 주세요', 'error');
+
+  setBtnLoading('batch-btn', true);
+  allResults = [];
+  setProgress(0, urls.length);
+  setStatus('');
+
+  for (let i = 0; i < urls.length; i++) {
+    setStatus(`(${i+1}/${urls.length}) ${urls[i].replace('https://www.goodpello.com','')} 분석 중...`, 'info');
+    try {
+      const result = await auditUrl(urls[i]);
+      allResults.push(result);
+    } catch(e) {
+      allResults.push({ url: urls[i], score: 0, grade: 'D', pageType: detectType(urls[i]), lang: detectLang(urls[i]), checks: {}, summary: '오류: ' + e.message, top_issues: [] });
+    }
+    setProgress(i + 1, urls.length);
+    renderResults(allResults);
+  }
+
+  setBtnLoading('batch-btn', false);
+  setProgress(0, 0);
+  setStatus(`완료: ${urls.length}개 페이지 감사 완료`, 'info');
+}
+
+// ── 렌더링
+const listLabels = {
+  title_length:'타이틀 길이', title_structure:'타이틀 구조', title_keyword:'타이틀 유형',
+  meta_length:'메타설명 길이', meta_keyword:'메타 키워드 배치',
+  banner_length:'배너 길이', body_length:'본문 길이',
+  faq_count:'FAQ 개수', faq_definition:'FAQ 정의형', faq_cta:'FAQ CTA', synonym_variety:'동의어 혼용'
+};
+const detailLabels = {
+  product_name_length:'상품명 길이', product_name_modifier:'상품명 수식어',
+  description_length:'설명 길이', synonym_variety:'동의어 혼용',
+  keyword_count:'키워드 개수', en_longtail:'영어 롱테일', ja_katakana:'일본어 카타카나',
+  meta_length:'메타설명 길이', usage_points_complete:'활용포인트', no_unverified_visual:'시각표현', overall_quality:'전체 품질'
+};
+
+function renderResults(results) {
+  const wrap = document.getElementById('results-wrap');
+  wrap.style.display = 'block';
+
+  const total = results.length;
+  const g = {A:0,B:0,C:0,D:0};
+  results.forEach(r => g[r.grade] = (g[r.grade]||0) + 1);
+  const avg = total ? Math.round(results.reduce((s,r) => s+(r.score||0), 0) / total) : 0;
+
+  document.getElementById('summary-row').innerHTML = `
+    <div class="summary-card"><div class="summary-label">평균</div><div class="summary-value">${avg}</div></div>
+    <div class="summary-card"><div class="summary-label">A등급</div><div class="summary-value c-green">${g.A||0}</div></div>
+    <div class="summary-card"><div class="summary-label">B등급</div><div class="summary-value c-green" style="opacity:.6">${g.B||0}</div></div>
+    <div class="summary-card"><div class="summary-label">C등급</div><div class="summary-value c-amber">${g.C||0}</div></div>
+    <div class="summary-card"><div class="summary-label">D등급</div><div class="summary-value c-red">${g.D||0}</div></div>
+  `;
+
+  document.getElementById('results-list').innerHTML = results.map(r => {
+    const labels = r.pageType === 'list' ? listLabels : detailLabels;
+    const checks = r.checks || {};
+    const checksHtml = Object.entries(labels).map(([k, label]) => {
+      const c = checks[k] || {status:'warn', comment:''};
+      const icon = c.status==='pass' ? '✓' : c.status==='fail' ? '✗' : '△';
+      return `<div class="check ${c.status}" title="${c.comment||''}">${icon} ${label}</div>`;
+    }).join('');
+    const issues = (r.top_issues||[]).map(i => `<div class="issue">${i}</div>`).join('');
+    const shortUrl = r.url.replace('https://www.goodpello.com','');
+    const langTag = r.lang ? `[${r.lang.toUpperCase()}]` : '';
+    const layerTag = r.layer ? ` ${r.layer}` : '';
+    const typeTag = r.pageType === 'list' ? '리스트' : '상세';
+
+    return `<div class="result-card grade-${r.grade||'D'}">
+      <div class="result-top">
+        <div>
+          <div class="result-url"><a href="${r.url}" target="_blank">${shortUrl}</a></div>
+          <div class="result-type">${langTag}${layerTag} · ${typeTag} 페이지</div>
+        </div>
+        <div class="grade-box">
+          <div class="grade-badge badge-${r.grade||'D'}">${r.grade||'D'}</div>
+          <div class="grade-score">${r.score||0}점</div>
+        </div>
+      </div>
+      <div class="checks">${checksHtml}</div>
+      ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
+      ${issues ? `<div class="issues">${issues}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function exportCSV() {
+  if (!allResults.length) return;
+  const headers = ['URL','타입','언어','레이어','점수','등급','요약'];
+  const rows = allResults.map(r => [
+    r.url, r.pageType, r.lang||'', r.layer||'', r.score||0, r.grade||'D',
+    (r.summary||'').replace(/,/g,'，')
+  ]);
+  const csv = [headers,...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
+  a.download = `goodpello-audit-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
+
+<script>
+// ── 구글 SEO 감사 추가 기능 ──────────────────────────────
+
+let auditMode = 'internal'; // internal | google | both
+let googleResults = [];
+
+function setAuditMode(mode) {
+  auditMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-btn-' + mode).classList.add('active');
+}
+
+// HTML에서 구글 SEO 관련 데이터 추출
+function extractGoogleSEOData(html, url) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const lang = detectLang(url);
+
+  // 기본 메타 정보
+  const title = doc.querySelector('title')?.textContent?.trim() || '';
+  const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+  const canonical = doc.querySelector('link[rel="canonical"]')?.getAttribute('href')?.trim() || '';
+  const h1s = Array.from(doc.querySelectorAll('h1')).map(h => h.textContent.trim());
+  const h2s = Array.from(doc.querySelectorAll('h2')).map(h => h.textContent.trim()).slice(0, 5);
+
+  // OG 태그
+  const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
+  const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim() || '';
+  const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content')?.trim() || '';
+  const ogType = doc.querySelector('meta[property="og:type"]')?.getAttribute('content')?.trim() || '';
+
+  // 트위터 카드
+  const twitterCard = doc.querySelector('meta[name="twitter:card"]')?.getAttribute('content')?.trim() || '';
+  const twitterTitle = doc.querySelector('meta[name="twitter:title"]')?.getAttribute('content')?.trim() || '';
+
+  // hreflang
+  const hreflangs = Array.from(doc.querySelectorAll('link[rel="alternate"][hreflang]'))
+    .map(l => l.getAttribute('hreflang'));
+
+  // robots
+  const robots = doc.querySelector('meta[name="robots"]')?.getAttribute('content')?.trim() || '';
+
+  // 구조화 데이터 (JSON-LD)
+  const jsonLds = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'))
+    .map(s => { try { return JSON.parse(s.textContent); } catch(e) { return null; } })
+    .filter(Boolean);
+  const hasFaqSchema = jsonLds.some(j => j['@type'] === 'FAQPage');
+  const hasOrgSchema = jsonLds.some(j => j['@type'] === 'Organization');
+  const schemaTypes = jsonLds.map(j => j['@type']).filter(Boolean);
+
+  // 이미지 alt 체크
+  const images = Array.from(doc.querySelectorAll('img'));
+  const imagesWithoutAlt = images.filter(img => !img.getAttribute('alt') || img.getAttribute('alt').trim() === '').length;
+  const totalImages = images.length;
+
+  // 본문 텍스트 길이
+  const bodyText = doc.querySelector('main, #content, .content')?.textContent?.replace(/\s+/g, ' ')?.trim() || '';
+
+  // 내부 링크 수
+  const internalLinks = Array.from(doc.querySelectorAll('a[href]'))
+    .filter(a => {
+      const href = a.getAttribute('href');
+      return href && (href.startsWith('/') || href.includes('goodpello.com'));
+    }).length;
+
+  // 페이지 스피드 힌트 (preload, preconnect 여부)
+  const hasPreload = doc.querySelectorAll('link[rel="preload"]').length > 0;
+  const hasPreconnect = doc.querySelectorAll('link[rel="preconnect"]').length > 0;
+
+  // viewport 메타
+  const viewport = doc.querySelector('meta[name="viewport"]')?.getAttribute('content')?.trim() || '';
+
+  return {
+    url, lang, title, metaDesc, canonical, h1s, h2s,
+    ogTitle, ogDesc, ogImage, ogType, twitterCard, twitterTitle,
+    hreflangs, robots, hasFaqSchema, hasOrgSchema, schemaTypes,
+    imagesWithoutAlt, totalImages, bodyText, internalLinks,
+    hasPreload, hasPreconnect, viewport
+  };
+}
+
+function buildGooglePrompt(d) {
+  const isMultilang = d.hreflangs.length > 0;
+  const titleLen = d.title.length;
+  const metaLen = d.metaDesc.length;
+
+  return `당신은 구글 SEO 전문가입니다. 아래 페이지를 구글 공식 가이드라인 기준으로 채점하세요.
+
+URL: ${d.url}
+언어: ${d.lang}
+
+[수집된 SEO 데이터]
+타이틀 (${titleLen}자): "${d.title}"
+메타 디스크립션 (${metaLen}자): "${d.metaDesc}"
+H1 태그 (${d.h1s.length}개): ${d.h1s.map(h => '"'+h+'"').join(', ')}
+H2 태그 샘플: ${d.h2s.slice(0,3).map(h => '"'+h+'"').join(', ')}
+캐노니컬: "${d.canonical}"
+robots 메타: "${d.robots}"
+
+OG 태그:
+- og:title: ${d.ogTitle ? '있음 ('+d.ogTitle.length+'자)' : '없음'}
+- og:description: ${d.ogDesc ? '있음' : '없음'}
+- og:image: ${d.ogImage ? '있음' : '없음'}
+- og:type: "${d.ogType}"
+트위터 카드: ${d.twitterCard ? '"'+d.twitterCard+'"' : '없음'}
+
+hreflang 태그: ${d.hreflangs.length > 0 ? d.hreflangs.join(', ') : '없음'}
+구조화 데이터 타입: ${d.schemaTypes.length > 0 ? d.schemaTypes.join(', ') : '없음'}
+FAQ 스키마: ${d.hasFaqSchema ? '있음' : '없음'}
+Organization 스키마: ${d.hasOrgSchema ? '있음' : '없음'}
+
+이미지: 총 ${d.totalImages}개 / alt 없는 이미지: ${d.imagesWithoutAlt}개
+내부 링크 수: ${d.internalLinks}개
+viewport 메타: ${d.viewport ? '있음' : '없음'}
+preload 최적화: ${d.hasPreload ? '있음' : '없음'}
+본문 텍스트 길이: 약 ${d.bodyText.length}자
+
+아래 12개 항목을 구글 SEO 공식 가이드라인 기준으로 pass/warn/fail 판정하세요:
+
+1. title_tag: 타이틀 50~60자(영어)/30~50자(한국어), 핵심 키워드 앞 배치, 브랜드명 포함
+2. meta_description: 150~160자(영어)/110~130자(한국어), 클릭 유도 문구, 키워드 자연 포함
+3. h1_structure: H1이 정확히 1개, 페이지 주제 명확히 표현
+4. heading_hierarchy: H2 등 소제목 구조가 콘텐츠 계층을 잘 표현
+5. canonical_tag: 캐노니컬 태그 존재 및 올바른 URL
+6. hreflang: 다국어 사이트에서 hreflang 태그 올바르게 구현
+7. og_tags: OG 태그(title/desc/image/type) 완성도
+8. structured_data: FAQ, Organization 등 구조화 데이터 구현
+9. image_alt: 이미지 alt 텍스트 완성도 (alt 없는 비율)
+10. mobile_friendly: viewport 메타 태그 및 모바일 대응
+11. page_speed_hints: preload/preconnect 등 성능 최적화 힌트
+12. content_depth: 본문 텍스트 충분한 깊이와 E-E-A-T 신호
+
+점수: pass=8점, warn=4점, fail=0점 (최대 96점+보너스4=100점)
+등급: A≥85 / B≥70 / C≥55 / D<55
+
+JSON만 출력 (코드블록 없이):
+{"score":0,"grade":"A","checks":{"title_tag":{"status":"pass","comment":""},"meta_description":{"status":"pass","comment":""},"h1_structure":{"status":"pass","comment":""},"heading_hierarchy":{"status":"pass","comment":""},"canonical_tag":{"status":"pass","comment":""},"hreflang":{"status":"pass","comment":""},"og_tags":{"status":"pass","comment":""},"structured_data":{"status":"pass","comment":""},"image_alt":{"status":"pass","comment":""},"mobile_friendly":{"status":"pass","comment":""},"page_speed_hints":{"status":"pass","comment":""},"content_depth":{"status":"pass","comment":""}},"summary":"2문장 요약","top_issues":["문제점1","문제점2"],"strengths":["강점1","강점2"]}`;
+}
+
+const googleLabels = {
+  title_tag:'타이틀 태그', meta_description:'메타 디스크립션',
+  h1_structure:'H1 구조', heading_hierarchy:'소제목 계층',
+  canonical_tag:'캐노니컬 태그', hreflang:'hreflang 태그',
+  og_tags:'OG 태그', structured_data:'구조화 데이터',
+  image_alt:'이미지 Alt', mobile_friendly:'모바일 친화성',
+  page_speed_hints:'페이지 속도 힌트', content_depth:'콘텐츠 깊이'
+};
+
+async function runGoogleAudit(url, html) {
+  const data = extractGoogleSEOData(html, url);
+  const prompt = buildGooglePrompt(data);
+  const result = await callClaude(prompt);
+  return { ...result, url, auditType: 'google', lang: data.lang };
+}
+
+function renderGoogleResult(r) {
+  const checks = r.checks || {};
+  const checksHtml = Object.entries(googleLabels).map(([k, label]) => {
+    const c = checks[k] || {status:'warn', comment:''};
+    const icon = c.status==='pass' ? '✓' : c.status==='fail' ? '✗' : '△';
+    return `<div class="check ${c.status}" title="${c.comment||''}">${icon} ${label}</div>`;
+  }).join('');
+  const issues = (r.top_issues||[]).map(i => `<div class="issue">${i}</div>`).join('');
+  const strengths = (r.strengths||[]).map(s => `<div class="strength">${s}</div>`).join('');
+  const shortUrl = r.url.replace('https://www.goodpello.com','');
+
+  return `<div class="result-card grade-${r.grade||'D'}" style="border-left-color:#4285f4">
+    <div class="result-top">
+      <div>
+        <div class="result-url"><a href="${r.url}" target="_blank">${shortUrl}</a></div>
+        <div class="result-type" style="color:#1a73e8">🔍 구글 SEO 기준</div>
+      </div>
+      <div class="grade-box">
+        <div class="grade-badge badge-${r.grade||'D'}">${r.grade||'D'}</div>
+        <div class="grade-score">${r.score||0}점</div>
+      </div>
+    </div>
+    <div class="checks">${checksHtml}</div>
+    ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
+    ${strengths ? `<div class="strengths">${strengths}</div>` : ''}
+    ${issues ? `<div class="issues">${issues}</div>` : ''}
+  </div>`;
+}
+
+// ── 기존 auditUrl 함수 오버라이드 (mode 적용)
+const _originalAuditUrl = auditUrl;
+window.auditUrl = async function(url) {
+  url = url.trim();
+  const html = await fetchPage(url);
+  if (!html || html.length < 500) throw new Error('페이지를 불러올 수 없습니다: ' + url);
+
+  const results = [];
+
+  if (auditMode === 'internal' || auditMode === 'both') {
+    const type = detectType(url);
+    const data = type === 'list' ? extractListData(html, url) : extractDetailData(html, url);
+    const audit = await auditWithClaude(data);
+    results.push({ ...audit, url, pageType: type, lang: data.lang, layer: data.layer || '', auditType: 'internal' });
+  }
+
+  if (auditMode === 'google' || auditMode === 'both') {
+    const gResult = await runGoogleAudit(url, html);
+    results.push(gResult);
+  }
+
+  return results;
+};
+
+// ── 기존 runSingle/runBatch 오버라이드
+const _origRunSingle = window.runSingle;
+window.runSingle = async function() {
+  if (!getKey()) return setStatus('API 키를 먼저 입력해 주세요', 'error');
+  const url = document.getElementById('single-url').value.trim();
+  if (!url) return setStatus('URL을 입력해 주세요', 'error');
+  setBtnLoading('single-btn', true);
+  setStatus('페이지 분석 중...', 'info');
+  try {
+    const results = await window.auditUrl(url);
+    allResults = results.filter(r => r.auditType === 'internal');
+    googleResults = results.filter(r => r.auditType === 'google');
+    renderCombinedResults(allResults, googleResults);
+    setStatus('');
+  } catch(e) {
+    setStatus('오류: ' + e.message, 'error');
+  }
+  setBtnLoading('single-btn', false);
+};
+
+const _origRunBatch = window.runBatch;
+window.runBatch = async function() {
+  if (!getKey()) return setStatus('API 키를 먼저 입력해 주세요', 'error');
+  const raw = document.getElementById('batch-urls').value;
+  const urls = raw.split('\n').map(u => u.trim()).filter(u => u.startsWith('http'));
+  if (!urls.length) return setStatus('URL을 입력해 주세요', 'error');
+
+  setBtnLoading('batch-btn', true);
+  allResults = [];
+  googleResults = [];
+  setProgress(0, urls.length);
+  setStatus('');
+
+  for (let i = 0; i < urls.length; i++) {
+    setStatus(`(${i+1}/${urls.length}) 분석 중...`, 'info');
+    try {
+      const results = await window.auditUrl(urls[i]);
+      allResults.push(...results.filter(r => r.auditType === 'internal'));
+      googleResults.push(...results.filter(r => r.auditType === 'google'));
+    } catch(e) {
+      allResults.push({ url: urls[i], score: 0, grade: 'D', pageType: 'list', lang: '', checks: {}, summary: '오류: ' + e.message, top_issues: [], auditType: 'internal' });
+    }
+    setProgress(i + 1, urls.length);
+    renderCombinedResults(allResults, googleResults);
+  }
+
+  setBtnLoading('batch-btn', false);
+  setProgress(0, 0);
+  setStatus(`완료: ${urls.length}개 페이지 감사 완료`, 'info');
+};
+
+function renderCombinedResults(internalArr, googleArr) {
+  const wrap = document.getElementById('results-wrap');
+  wrap.style.display = 'block';
+
+  // 요약 통계 (모드에 따라)
+  const mainArr = auditMode === 'google' ? googleArr : internalArr;
+  const total = mainArr.length;
+  const g = {A:0,B:0,C:0,D:0};
+  mainArr.forEach(r => g[r.grade] = (g[r.grade]||0)+1);
+  const avg = total ? Math.round(mainArr.reduce((s,r) => s+(r.score||0),0)/total) : 0;
+
+  document.getElementById('summary-row').innerHTML = `
+    <div class="summary-card"><div class="summary-label">평균</div><div class="summary-value">${avg}</div></div>
+    <div class="summary-card"><div class="summary-label">A등급</div><div class="summary-value c-green">${g.A||0}</div></div>
+    <div class="summary-card"><div class="summary-label">B등급</div><div class="summary-value c-green" style="opacity:.6">${g.B||0}</div></div>
+    <div class="summary-card"><div class="summary-label">C등급</div><div class="summary-value c-amber">${g.C||0}</div></div>
+    <div class="summary-card"><div class="summary-label">D등급</div><div class="summary-value c-red">${g.D||0}</div></div>
+  `;
+
+  // 결과 카드 렌더링
+  const allUrls = [...new Set([...internalArr.map(r=>r.url), ...googleArr.map(r=>r.url)])];
+
+  document.getElementById('results-list').innerHTML = allUrls.map(url => {
+    let html = '';
+    const iResult = internalArr.find(r => r.url === url);
+    const gResult = googleArr.find(r => r.url === url);
+
+    if (iResult && (auditMode === 'internal' || auditMode === 'both')) {
+      html += renderInternalResultCard(iResult);
+    }
+    if (gResult && (auditMode === 'google' || auditMode === 'both')) {
+      html += renderGoogleResult(gResult);
+    }
+    return html;
+  }).join('');
+}
+
+function renderInternalResultCard(r) {
+  const labels = r.pageType === 'list' ? listLabels : detailLabels;
+  const checks = r.checks || {};
+  const checksHtml = Object.entries(labels).map(([k, label]) => {
+    const c = checks[k] || {status:'warn', comment:''};
+    const icon = c.status==='pass' ? '✓' : c.status==='fail' ? '✗' : '△';
+    return `<div class="check ${c.status}" title="${c.comment||''}">${icon} ${label}</div>`;
+  }).join('');
+  const issues = (r.top_issues||[]).map(i => `<div class="issue">${i}</div>`).join('');
+  const shortUrl = r.url.replace('https://www.goodpello.com','');
+  const langTag = r.lang ? `[${r.lang.toUpperCase()}]` : '';
+  const layerTag = r.layer ? ` ${r.layer}` : '';
+  const typeTag = r.pageType === 'list' ? '리스트' : '상세';
+
+  return `<div class="result-card grade-${r.grade||'D'}">
+    <div class="result-top">
+      <div>
+        <div class="result-url"><a href="${r.url}" target="_blank">${shortUrl}</a></div>
+        <div class="result-type">📋 ${langTag}${layerTag} · ${typeTag} 페이지</div>
+      </div>
+      <div class="grade-box">
+        <div class="grade-badge badge-${r.grade||'D'}">${r.grade||'D'}</div>
+        <div class="grade-score">${r.score||0}점</div>
+      </div>
+    </div>
+    <div class="checks">${checksHtml}</div>
+    ${r.summary ? `<div class="result-summary">${r.summary}</div>` : ''}
+    ${issues ? `<div class="issues">${issues}</div>` : ''}
+  </div>`;
+}
+</script>
+
+<style>
+.strength { font-size: 11px; font-family: var(--mono); color: var(--green); padding: 3px 8px; background: var(--green-bg); border-radius: 4px; margin-bottom: 3px; }
+.strengths { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+</style>
